@@ -1,34 +1,21 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace NanoMesh
 {
     public class NanoSpawner : MonoBehaviour
     {
-        [SerializeField] private GameObject locationParent;
         [SerializeField] private GameObject nanoPrefab;
         [SerializeField] private GameObject nanoParent;
         [SerializeField] private SkinnedMeshRenderer characterMesh;
         private List<Vector3> _sMNormals = new List<Vector3>();
         private List<Vector3> _sMVerts = new List<Vector3>();
         [SerializeField] private float offsetDistance;
+        private List<GameObject> _nanoParts = new List<GameObject>();
 
         private void Start()
         {
-            /*if (locationParent == null)
-            {
-                Debug.LogError("Location parent is not set!");
-                return;
-            }
-
-            foreach (Transform child in locationParent.transform)
-            {
-                _locationSpots.Add(child.gameObject);
-            }*/
-            
             if (characterMesh == null)
             {
                 Debug.LogError("Character mesh is not set!");
@@ -50,22 +37,46 @@ namespace NanoMesh
 
         private IEnumerator AssignGameObjectToLocations()
         {
-            /*foreach (var g in _locationSpots)
-            {
-                GameObject parentG = Instantiate(nanoPrefab, g.transform.position, Quaternion.identity);
-                parentG.transform.parent = nanoParent.transform;
-            }*/
+            int batchSize = 100;
+            int totalVerts = _sMVerts.Count;
+            int totalNormals = _sMNormals.Count;
 
-            foreach (var v in _sMVerts)
+            for (int v = 0; v < totalVerts; v++)
             {
-                for (int i = 0; i < _sMNormals.Count; i++)
+                Vector3 worldPos = transform.TransformPoint(_sMVerts[v]);
+                GameObject nanoInstance = Instantiate(nanoPrefab, worldPos, Quaternion.identity);
+                nanoInstance.transform.parent = nanoParent.transform;
+
+                if (v % batchSize == 0)
                 {
-                    Vector3 normal = transform.TransformDirection(_sMNormals[i]);
-                    Vector3 worldPos = transform.TransformPoint(v);
-                    GameObject nanoInstance = Instantiate(nanoPrefab, worldPos + normal * offsetDistance, Quaternion.LookRotation(normal));
-                    nanoInstance.transform.parent = nanoParent.transform;
+                    yield return null;
+                    ;
                 }
             }
+
+            for (int i = 0; i < nanoParent.transform.childCount; i++)
+            {
+                _nanoParts.Add(nanoParent.transform.GetChild(i).gameObject);
+
+                if (i % batchSize == 0)
+                {
+                    yield return null;
+                    ;
+                }
+            }
+
+            for (int i = 0; i < totalNormals; i++)
+            {
+                Vector3 normal = transform.TransformDirection(_sMNormals[i]);
+                _nanoParts[i].transform.position = transform.TransformPoint(_sMVerts[i]) + normal * offsetDistance;
+
+                if (i % batchSize == 0)
+                {
+                    yield return null;
+                    ;
+                }
+            }
+
             yield return null;
         }
     }
